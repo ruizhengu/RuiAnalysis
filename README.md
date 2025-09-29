@@ -1,7 +1,5 @@
 # RuiAnalysis
 
-# Instructions
-
 ## Configurations
 
 ### Install Packages
@@ -38,10 +36,13 @@ LLVM_DIR = /opt/homebrew/Cellar/llvm/21.1.2/lib/cmake/llvm
 
 **Toolchains Configurations**
 
-![Clion_Toolchains](./figures/Clion_Toolchains.png)
-
 ```
 C Compiler = /opt/homebrew/Cellar/llvm/21.1.2/bin/clang
 C++ Compiler = /opt/homebrew/Cellar/llvm/21.1.2/bin/clang++
 ```
 
+![Clion_Toolchains](./figures/Clion_Toolchains.png)
+
+## Instructions
+
+Build the project and copy compile_commands.json from cmake-build-debug to root.

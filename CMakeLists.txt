@@ -18,6 +18,8 @@ include_directories(SYSTEM ${CLANG_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LLVM_CXX_FLAGS}")
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 include(CTest)
 enable_testing()
 
@@ -43,4 +45,10 @@ target_link_libraries(RuiAnalysis
         clangEdit
         clangLex
         clangBasic
+)
+
+execute_process(
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_BINARY_DIR}/compile_commands.json
+        ${CMAKE_SOURCE_DIR}/compile_commands.json
 )
