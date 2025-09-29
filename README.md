@@ -45,4 +45,3 @@ C++ Compiler = /opt/homebrew/Cellar/llvm/21.1.2/bin/clang++
 
 ## Instructions
 
-Build the project and copy compile_commands.json from cmake-build-debug to root.

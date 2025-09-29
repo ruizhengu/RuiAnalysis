@@ -47,6 +47,29 @@ target_link_libraries(RuiAnalysis
         clangBasic
 )
 
+#add_executable(dummy_for_test examples/test.cpp)
+
+#target_include_directories(dummy_for_test PRIVATE
+#        ${LLVM_INCLUDE_DIRS}
+#        ${CLANG_INCLUDE_DIRS}
+#)
+
+#if(APPLE)
+#    # Detect the SDK path (you may adjust this to your local setup)
+#    execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE MACOS_SDK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+#    message(STATUS "macOS SDK path: ${MACOS_SDK_PATH}")
+#
+#    target_compile_options(RuiAnalysis PRIVATE
+#            "-stdlib=libc++"
+#            "-isysroot" "${MACOS_SDK_PATH}"
+#    )
+#    # Also for dummy_for_test, the same
+#    target_compile_options(dummy_for_test PRIVATE
+#            "-stdlib=libc++"
+#            "-isysroot" "${MACOS_SDK_PATH}"
+#    )
+#endif()
+
 execute_process(
         COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_BINARY_DIR}/compile_commands.json
