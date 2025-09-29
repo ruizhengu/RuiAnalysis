@@ -1,4 +1,7 @@
 #include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -11,6 +14,7 @@ using namespace clang;
 using namespace clang::tooling;
 using namespace llvm;
 using namespace std;
+using json = nlohmann::json;
 
 // Command-line options
 static cl::OptionCategory MyToolCategory("my-tool options");
@@ -154,13 +158,41 @@ public:
     }
 };
 
-int main(int argc, const char **argv) {
-    auto ExpectedParser = CommonOptionsParser::create(argc, argv, MyToolCategory);
-    if (!ExpectedParser) {
-        llvm::errs() << ExpectedParser.takeError();
-        return 1;
+vector<string> findProjectFiles(const string &projectDir) {
+    vector<string> files;
+
+    try {
+        for (const auto &entry: filesystem::recursive_directory_iterator(projectDir)) {
+            if (entry.is_regular_file()) {
+                string extension = entry.path().extension().string();
+                if (extension == ".cpp" || extension == ".cxx" || extension == ".cc" ||
+                    extension == ".h" || extension == ".hpp" || extension == ".hxx") {
+                    files.push_back(entry.path().string());
+                }
+            }
+        }
+    } catch (const filesystem::filesystem_error &e) {
+        errs() << "Error: Could not read directory '" << projectDir << "': " << e.what() << "\n";
     }
-    CommonOptionsParser &OptionsParser = ExpectedParser.get();
-    ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
-    return Tool.run(newFrontendActionFactory<CallExprAction>().get());
+    return files;
+}
+
+// int main(int argc, const char **argv) {
+//     auto ExpectedParser = CommonOptionsParser::create(argc, argv, MyToolCategory);
+//     if (!ExpectedParser) {
+//         llvm::errs() << ExpectedParser.takeError();
+//         return 1;
+//     }
+//     CommonOptionsParser &OptionsParser = ExpectedParser.get();
+//     ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
+//     return Tool.run(newFrontendActionFactory<CallExprAction>().get());
+// }
+
+int main(int argc, const char **argv) {
+    string projectDir = "../examples/rpan-studio-master";
+    vector<string> projectFiles = findProjectFiles(projectDir);
+
+    for (string &file: projectFiles) {
+        llvm::outs() << file;
+    }
 }

@@ -8,6 +8,7 @@
 brew install cmake # cmake
 brew install ninja # ninja
 brew install llvm # llvm
+brew install nlohmann-json # nlohmann::json
 ```
 
 ### Set Environment Variables

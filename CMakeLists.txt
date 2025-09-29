@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 find_package(LLVM REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "LLVM Config: ${LLVM_DIR}")
@@ -45,30 +46,8 @@ target_link_libraries(RuiAnalysis
         clangEdit
         clangLex
         clangBasic
+        nlohmann_json::nlohmann_json
 )
-
-#add_executable(dummy_for_test examples/test.cpp)
-
-#target_include_directories(dummy_for_test PRIVATE
-#        ${LLVM_INCLUDE_DIRS}
-#        ${CLANG_INCLUDE_DIRS}
-#)
-
-#if(APPLE)
-#    # Detect the SDK path (you may adjust this to your local setup)
-#    execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE MACOS_SDK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
-#    message(STATUS "macOS SDK path: ${MACOS_SDK_PATH}")
-#
-#    target_compile_options(RuiAnalysis PRIVATE
-#            "-stdlib=libc++"
-#            "-isysroot" "${MACOS_SDK_PATH}"
-#    )
-#    # Also for dummy_for_test, the same
-#    target_compile_options(dummy_for_test PRIVATE
-#            "-stdlib=libc++"
-#            "-isysroot" "${MACOS_SDK_PATH}"
-#    )
-#endif()
 
 execute_process(
         COMMAND ${CMAKE_COMMAND} -E create_symlink
