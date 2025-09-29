@@ -1,7 +1,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include <nlohmann/json.hpp>
+// #include <nlohmann/json.hpp>
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -9,17 +9,21 @@
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace clang::tooling;
 using namespace llvm;
 using namespace std;
-using json = nlohmann::json;
+// using json = nlohmann::json;
 
 // Command-line options
 static cl::OptionCategory MyToolCategory("my-tool options");
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 static cl::extrahelp MoreHelp("\nMore help text...\n");
+static std::map<std::string, std::vector<std::string> > globalResults;
+
 
 class CallAnalyser : public RecursiveASTVisitor<CallAnalyser> {
     ASTContext &Context;
@@ -65,7 +69,7 @@ public:
     /**
      * Visit functions (not in classes)
      *
-     * @param funcDecl
+     * @param func
      * @return
      */
     bool VisitFunctionDecl(FunctionDecl *func) {
@@ -107,6 +111,7 @@ private:
     class CallExprVisitor : public RecursiveASTVisitor<CallExprVisitor> {
         ASTContext &Context;
         string callerName;
+        vector<string> callees;
 
     public:
         CallExprVisitor(ASTContext &Context, const string &callerName)
@@ -119,12 +124,17 @@ private:
             FunctionDecl *callee = callExpr->getDirectCallee();
             if (callee) {
                 string calleeName = getMethodFullName(callee);
+                callees.push_back(calleeName);
                 llvm::outs() << callerName << " calls " << calleeName << "\n";
             } else {
                 llvm::outs() << callerName << " invalid call expression!\n";
             }
 
             return true;
+        }
+
+        const vector<string> &getCallees() const {
+            return callees;
         }
     };
 };
@@ -134,10 +144,11 @@ private:
  */
 class CallExprConsumer : public ASTConsumer {
     CallAnalyser analyser;
+    string fileName;
 
 public:
     // Constructor
-    explicit CallExprConsumer(ASTContext &Context) : analyser(Context) {
+    explicit CallExprConsumer(ASTContext &Context, const string &fileName) : analyser(Context), fileName(fileName) {
     }
 
     void HandleTranslationUnit(ASTContext &Context) override {
@@ -154,7 +165,7 @@ public:
 class CallExprAction : public ASTFrontendAction {
 public:
     std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef InFile) override {
-        return std::make_unique<CallExprConsumer>(CI.getASTContext());
+        return std::make_unique<CallExprConsumer>(CI.getASTContext(), InFile.str());
     }
 };
 
@@ -165,8 +176,9 @@ vector<string> findProjectFiles(const string &projectDir) {
         for (const auto &entry: filesystem::recursive_directory_iterator(projectDir)) {
             if (entry.is_regular_file()) {
                 string extension = entry.path().extension().string();
-                if (extension == ".cpp" || extension == ".cxx" || extension == ".cc" ||
-                    extension == ".h" || extension == ".hpp" || extension == ".hxx") {
+                // if (extension == ".cpp" || extension == ".cxx" || extension == ".cc" ||
+                //     extension == ".h" || extension == ".hpp" || extension == ".hxx") {
+                if (extension == ".cpp" || extension == ".c") {
                     files.push_back(entry.path().string());
                 }
             }
@@ -177,22 +189,42 @@ vector<string> findProjectFiles(const string &projectDir) {
     return files;
 }
 
-// int main(int argc, const char **argv) {
-//     auto ExpectedParser = CommonOptionsParser::create(argc, argv, MyToolCategory);
-//     if (!ExpectedParser) {
-//         llvm::errs() << ExpectedParser.takeError();
-//         return 1;
-//     }
-//     CommonOptionsParser &OptionsParser = ExpectedParser.get();
-//     ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
-//     return Tool.run(newFrontendActionFactory<CallExprAction>().get());
-// }
-
 int main(int argc, const char **argv) {
-    string projectDir = "../examples/rpan-studio-master";
-    vector<string> projectFiles = findProjectFiles(projectDir);
-
-    for (string &file: projectFiles) {
-        llvm::outs() << file;
+    auto ExpectedParser = CommonOptionsParser::create(argc, argv, MyToolCategory);
+    if (!ExpectedParser) {
+        llvm::errs() << ExpectedParser.takeError();
+        return 1;
     }
+    CommonOptionsParser &OptionsParser = ExpectedParser.get();
+
+    vector<string> inPaths = OptionsParser.getSourcePathList();
+    vector<string> allFiles;
+    for (auto &p: inPaths) {
+        if (filesystem::is_directory(p)) {
+            auto more = findProjectFiles(p);
+            allFiles.insert(allFiles.end(), more.begin(), more.end());
+        } else {
+            allFiles.push_back(p);
+        }
+    }
+
+    // ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
+    ClangTool Tool(OptionsParser.getCompilations(), allFiles);
+    int res = Tool.run(newFrontendActionFactory<CallExprAction>().get());
+
+    json::Array arr;
+    for (string file: allFiles) {
+        json::Object obj;
+        json::Object inner;
+
+        json::Array callsArr;
+        inner["calls"] = std::move(callsArr);
+        // obj[fname] = std::move(inner);
+
+        arr.push_back(std::move(obj));
+    }
+
+    llvm::outs() << llvm::formatv("{0:2}", llvm::json::Value(std::move(arr))) << "\n";
+
+    return res;
 }
