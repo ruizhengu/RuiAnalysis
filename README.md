@@ -46,3 +46,13 @@ C++ Compiler = /opt/homebrew/Cellar/llvm/21.1.2/bin/clang++
 
 ## Instructions
 
+```sh
+# 1. clone project
+git clone https://github.com/ruizhengu/RuiAnalysis.git
+# 2. go to root dir
+cd RuiAnalysis
+# 3. build project with Clion
+# 4. run project with test file
+cmake-build-debug/RuiAnalysis ./examples
+```
+

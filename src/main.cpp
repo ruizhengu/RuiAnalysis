@@ -21,15 +21,75 @@ static cl::OptionCategory MyToolCategory("my-tool options");
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 static cl::extrahelp MoreHelp("\nMore help text...\n");
 
-static json globalResults = json::object();
+// static json globalResults = json::object();
 static vector<filesystem::path> inputRootDirs; // directories provided as inputs
+static json ffmpegResults = json::object();
 
+/**
+ * Check if API belongs to FFmpeg
+ *
+ * @param decl
+ * @param Context
+ * @return
+ */
+static bool isFFmpegAPIDecl(const FunctionDecl *decl, const ASTContext &Context) {
+    if (!decl) return false;
+
+    // Heuristic: File name contains FFmpeg libs
+    const string name = decl->getNameAsString();
+    if (!name.empty()) {
+        // return true;
+        if (
+            name.rfind("avutil", 0) == 0 ||
+            name.rfind("swscale", 0) == 0 ||
+            name.rfind("swresample", 0) == 0 ||
+            name.rfind("avcodec", 0) == 0 ||
+            name.rfind("avformat", 0) == 0 ||
+            name.rfind("avdevice", 0) == 0 ||
+            name.rfind("avfilter", 0) == 0 ||
+            name.rfind("ffmpeg", 0) == 0
+        ) {
+            return true;
+        }
+    }
+
+    // Heuristic: Header path contains FFmpeg libs
+    // Get callee source location
+    const SourceManager &SM = Context.getSourceManager();
+    SourceLocation loc = decl->getLocation();
+    if (!loc.isValid()) return false;
+
+    SourceLocation spellingLoc = SM.getSpellingLoc(loc);
+    StringRef filenameRef = SM.getFilename(spellingLoc);
+    string path = filenameRef.str();
+    // lowercase checking
+    string lower;
+    lower.resize(path.size());
+    transform(path.begin(), path.end(), lower.begin(), [](unsigned char c) { return std::tolower(c); });
+    // FFmpeg library source: https://www.ffmpeg.org/documentation.html
+    return (
+        lower.find("avutil") != string::npos ||
+        lower.find("swscale") != string::npos ||
+        lower.find("swresample") != string::npos ||
+        lower.find("avcodec") != string::npos ||
+        lower.find("avformat") != string::npos ||
+        lower.find("avdevice") != string::npos ||
+        lower.find("avfilter") != string::npos ||
+        lower.find("ffmpeg") != string::npos
+    );
+}
+
+/**
+ * Get the relative file path to store in the result
+ *
+ * @param absoluteOrInputPath
+ * @return
+ */
 static string toDisplayPath(const string &absoluteOrInputPath) {
     filesystem::path absPath = filesystem::weakly_canonical(filesystem::path(absoluteOrInputPath));
     for (const auto &root: inputRootDirs) {
         std::error_code ec;
         filesystem::path rel = absPath.lexically_relative(root);
-        // Use this relative path if it does not traverse outside the root
         if (!rel.empty() && rel.native().find("..") != 0) {
             return rel.string();
         }
@@ -44,8 +104,7 @@ vector<string> findProjectFiles(const string &projectDir) {
         for (const auto &entry: filesystem::recursive_directory_iterator(projectDir)) {
             if (entry.is_regular_file()) {
                 string extension = entry.path().extension().string();
-                // if (extension == ".cpp" || extension == ".cxx" || extension == ".cc" ||
-                //     extension == ".h" || extension == ".hpp" || extension == ".hxx") {
+                // Find all c++ and c files
                 if (extension == ".cpp" || extension == ".c") {
                     files.push_back(entry.path().string());
                 }
@@ -58,9 +117,11 @@ vector<string> findProjectFiles(const string &projectDir) {
 }
 
 class CallAnalyser : public RecursiveASTVisitor<CallAnalyser> {
+    ASTContext &Context;
     string currentFileName;
     string currentFunction;
     vector<string> currentCalls;
+    vector<string> currentFfmpegCalls;
 
     static string getMethodFullName(const FunctionDecl *func) {
         // if method
@@ -74,20 +135,20 @@ class CallAnalyser : public RecursiveASTVisitor<CallAnalyser> {
     }
 
     void storeResults() {
-        if (!currentFunction.empty() && !currentCalls.empty()) {
+        if (!currentFunction.empty() && !currentFfmpegCalls.empty()) {
             const string fileKey = toDisplayPath(currentFileName);
-
-            if (!globalResults.contains(fileKey)) {
-                globalResults[fileKey] = json::object();
+            if (!ffmpegResults.contains(fileKey)) {
+                ffmpegResults[fileKey] = json::object();
             }
-            globalResults[fileKey][currentFunction] = currentCalls;
+            ffmpegResults[fileKey][currentFunction] = currentFfmpegCalls;
         }
         currentCalls.clear();
+        currentFfmpegCalls.clear();
     }
 
 public:
     // Constructor
-    explicit CallAnalyser(const string &fileName) : currentFileName(fileName) {
+    explicit CallAnalyser(ASTContext &Context, const string &fileName) : Context(Context), currentFileName(fileName) {
     }
 
     /**
@@ -97,7 +158,6 @@ public:
      * @return
      */
     bool VisitCXXMethodDecl(CXXMethodDecl *method) {
-        // storeResults(); // store previous method
         // Get current class and method name
         currentFunction = getMethodFullName(method);
 
@@ -124,7 +184,6 @@ public:
         if (isa<CXXMethodDecl>(func)) {
             return true;
         }
-        // storeResults(); // store previous function
 
         currentFunction = getMethodFullName(func);
         outs() << "=== Found Function: " << currentFunction << " ===\n";
@@ -151,7 +210,7 @@ private:
         if (!body) return;
 
         // Visitor to find call expressions in method
-        CallExprVisitor callVisitor(callerName, currentCalls);
+        CallExprVisitor callVisitor(Context, callerName, currentCalls, currentFfmpegCalls);
         callVisitor.TraverseStmt(body);
     }
 
@@ -159,28 +218,33 @@ private:
      * Visitor class: find function calls in methods
      */
     class CallExprVisitor : public RecursiveASTVisitor<CallExprVisitor> {
+        ASTContext &Context;
         string callerName;
         vector<string> &calls;
+        vector<string> &ffmpegCalls;
 
     public:
-        CallExprVisitor(const string &callerName, vector<string> &calls)
-            : callerName(callerName), calls(calls) {
+        CallExprVisitor(ASTContext &Context, const string &callerName, vector<string> &calls,
+                        vector<string> &ffmpegCalls)
+            : Context(Context), callerName(callerName), calls(calls), ffmpegCalls(ffmpegCalls) {
         }
 
         bool VisitCallExpr(CallExpr *callExpr) {
             outs() << "Found call expression: ";
             // get callee
             FunctionDecl *callee = callExpr->getDirectCallee();
-            if (callee) {
-                string calleeName = getMethodFullName(callee);
-                calls.push_back(calleeName);
-                outs() << callerName << " calls " << calleeName << "\n";
-            } else {
+            if (!callee) {
                 outs() << callerName << " invalid call expression!\n";
+                return true;
             }
-
+            string calleeName = getMethodFullName(callee);
+            calls.push_back(calleeName);
+            if (isFFmpegAPIDecl(callee, Context)) {
+                ffmpegCalls.push_back(calleeName);
+                outs() << callerName << " calls " << calleeName << "\n";
+            }
             return true;
-        }
+        };
     };
 };
 
@@ -193,7 +257,7 @@ class CallExprConsumer : public ASTConsumer {
 public:
     // Constructor
     explicit CallExprConsumer(ASTContext &Context, const string &fileName)
-        : analyser(fileName) {
+        : analyser(Context, fileName) {
     }
 
     void HandleTranslationUnit(ASTContext &Context) override {
@@ -241,19 +305,14 @@ int main(int argc, const char **argv) {
             inputRootDirs.emplace_back(filesystem::weakly_canonical(filesystem::path(p)).parent_path());
         }
     }
-    for (const string &file: allFiles) {
-        outs() << "Found File: " << file << "\n";
-    }
     ClangTool Tool(OptionsParser.getCompilations(), allFiles);
     int res = Tool.run(newFrontendActionFactory<CallExprAction>().get());
 
-    // Output the aggregated JSON map: file -> function -> [callees]
-    outs() << globalResults.dump(2) << "\n";
-
-    // Save JSON to file
-    const string outputFile = "call_graph.json";
-    ofstream ofs(outputFile, ios::out | ios::trunc);
-    ofs << globalResults.dump(2);
-    ofs.close();
+    outs() << ffmpegResults.dump(2) << "\n";
+    // Save FFmpeg calls in JSON file
+    const string ffmpegOutput = "ffmpeg_calls.json";
+    ofstream ofs2(ffmpegOutput, ios::out | ios::trunc);
+    ofs2 << ffmpegResults.dump(2);
+    ofs2.close();
     return res;
-}
+};

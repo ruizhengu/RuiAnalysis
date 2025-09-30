@@ -1,0 +1,315 @@
+{
+  "libobs/graphics/graphics-ffmpeg.c": {
+    "ffmpeg_image_init": [
+      "ffmpeg_image_open_decoder_context",
+      "ffmpeg_image_free"
+    ],
+    "gs_create_texture_file_data": [
+      "ffmpeg_image_init",
+      "ffmpeg_image_decode",
+      "ffmpeg_image_free"
+    ]
+  },
+  "libobs/media-io/audio-resampler-ffmpeg.c": {
+    "audio_resampler_create": [
+      "convert_speaker_layout",
+      "convert_speaker_layout"
+    ]
+  },
+  "libobs/media-io/video-scaler-ffmpeg.c": {
+    "video_scaler_create": [
+      "get_ffmpeg_scale_type",
+      "get_ffmpeg_coeffs",
+      "get_ffmpeg_coeffs",
+      "get_ffmpeg_range_type",
+      "get_ffmpeg_range_type"
+    ]
+  },
+  "plugins/obs-ffmpeg/ffmpeg-mux/ffmpeg-mux.c": {
+    "ffmpeg_mux_free": [
+      "free_avformat",
+      "header_free",
+      "header_free"
+    ],
+    "ffmpeg_mux_get_extra_data": [
+      "ffmpeg_mux_get_header",
+      "ffmpeg_mux_get_header"
+    ],
+    "ffmpeg_mux_get_header": [
+      "safe_read",
+      "safe_read",
+      "ffmpeg_mux_header"
+    ],
+    "ffmpeg_mux_header": [
+      "set_header",
+      "set_header"
+    ],
+    "ffmpeg_mux_init": [
+      "ffmpeg_mux_init_internal",
+      "ffmpeg_mux_free"
+    ],
+    "ffmpeg_mux_init_context": [
+      "init_streams",
+      "free_avformat",
+      "open_output_file",
+      "free_avformat"
+    ],
+    "ffmpeg_mux_init_internal": [
+      "init_params",
+      "ffmpeg_mux_get_extra_data",
+      "ffmpeg_mux_init_context"
+    ],
+    "ffmpeg_mux_packet": [
+      "get_index"
+    ],
+    "get_audio_params": [
+      "get_opt_str",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int"
+    ],
+    "get_opt_int": [
+      "get_opt_str"
+    ],
+    "init_params": [
+      "get_opt_str",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_str",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_int",
+      "get_opt_str",
+      "get_audio_params",
+      "get_opt_str"
+    ],
+    "init_streams": [
+      "create_video_stream",
+      "create_audio_stream"
+    ],
+    "main": [
+      "ffmpeg_mux_init",
+      "safe_read",
+      "resize_buf_resize",
+      "safe_read",
+      "ffmpeg_mux_packet",
+      "ffmpeg_mux_free",
+      "resize_buf_free"
+    ]
+  },
+  "plugins/obs-ffmpeg/jim-nvenc-helpers.c": {
+    "init_nvenc_internal": [
+      "load_nv_func",
+      "load_nv_func"
+    ],
+    "nv_failed": [
+      "nv_error_name",
+      "nv_error_name"
+    ]
+  },
+  "plugins/obs-ffmpeg/jim-nvenc.c": {
+    "init_bitstreams": [
+      "nv_bitstream_init"
+    ],
+    "init_encoder": [
+      "::operator=",
+      "::operator=",
+      "::operator=",
+      "::operator=",
+      "::operator=",
+      "::operator=",
+      "::operator=",
+      "_NV_ENC_CONFIG::operator=",
+      "::operator=",
+      "::operator=",
+      "nv_get_cap",
+      "nv_get_cap",
+      "nv_get_cap",
+      "::operator=",
+      "::operator=",
+      "::operator="
+    ],
+    "init_textures": [
+      "nv_texture_init"
+    ],
+    "nvenc_create": [
+      "init_session",
+      "init_bitstreams",
+      "init_textures",
+      "nvenc_destroy"
+    ],
+    "nvenc_destroy": [
+      "get_encoded_packet"
+    ],
+    "nvenc_encode_tex": [
+      "get_encoded_packet"
+    ],
+    "nvenc_update": [
+      "_NV_ENC_INITIALIZE_PARAMS::operator="
+    ]
+  },
+  "plugins/obs-ffmpeg/obs-ffmpeg-audio-encoders.c": {
+    "enc_create": [
+      "initialize_codec",
+      "enc_destroy"
+    ],
+    "enc_encode": [
+      "do_encode"
+    ]
+  },
+  "plugins/obs-ffmpeg/obs-ffmpeg-logging.c": {
+    "ffmpeg_log_callback": [
+      "create_or_fetch_log_context",
+      "destroy_log_context"
+    ]
+  },
+  "plugins/obs-ffmpeg/obs-ffmpeg-mux.c": {
+    "build_command_line": [
+      "add_muxer_params"
+    ],
+    "deactivate": [
+      "active",
+      "stopping"
+    ],
+    "deactivate_replay_buffer": [
+      "stopping",
+      "replay_buffer_clear"
+    ],
+    "ffmpeg_mpegts_mux_connect_time": [
+      "connect_time"
+    ],
+    "ffmpeg_mux_data": [
+      "active",
+      "send_headers",
+      "stopping",
+      "deactivate",
+      "write_packet"
+    ],
+    "ffmpeg_mux_destroy": [
+      "replay_buffer_clear"
+    ],
+    "ffmpeg_mux_start": [
+      "start_pipe"
+    ],
+    "ffmpeg_mux_stop": [
+      "capturing"
+    ],
+    "purge": [
+      "purge_front",
+      "purge_front"
+    ],
+    "replay_buffer_data": [
+      "active",
+      "stopping",
+      "deactivate_replay_buffer",
+      "replay_buffer_save"
+    ],
+    "replay_buffer_destroy": [
+      "ffmpeg_mux_destroy"
+    ],
+    "replay_buffer_mux_thread": [
+      "send_headers",
+      "write_packet"
+    ],
+    "replay_buffer_purge": [
+      "purge",
+      "purge"
+    ],
+    "send_headers": [
+      "send_video_headers"
+    ],
+    "signal_failure": [
+      "deactivate"
+    ],
+    "write_packet": [
+      "signal_failure",
+      "signal_failure"
+    ]
+  },
+  "plugins/obs-ffmpeg/obs-ffmpeg-nvenc.c": {
+    "nvenc_create": [
+      "nvenc_destroy"
+    ],
+    "nvenc_update": [
+      "nvenc_init_codec"
+    ]
+  },
+  "plugins/obs-ffmpeg/obs-ffmpeg-output.c": {
+    "create_audio_stream": [
+      "open_audio_codec"
+    ],
+    "create_video_stream": [
+      "open_video_codec"
+    ],
+    "ffmpeg_data_free": [
+      "close_video",
+      "close_audio"
+    ],
+    "ffmpeg_data_init": [
+      "set_encoder_ids",
+      "init_streams",
+      "open_output_file"
+    ],
+    "ffmpeg_log_error": [
+      "ffmpeg_output_set_last_error"
+    ],
+    "ffmpeg_output_destroy": [
+      "ffmpeg_output_full_stop"
+    ],
+    "ffmpeg_output_full_stop": [
+      "ffmpeg_deactivate"
+    ],
+    "ffmpeg_output_stop": [
+      "ffmpeg_output_full_stop"
+    ],
+    "init_streams": [
+      "create_video_stream",
+      "create_audio_stream"
+    ],
+    "process_packet": [
+      "stopping"
+    ],
+    "start_thread": [
+      "try_connect"
+    ],
+    "try_connect": [
+      "get_audio_mix_count",
+      "ffmpeg_output_full_stop"
+    ],
+    "write_thread": [
+      "process_packet",
+      "ffmpeg_deactivate"
+    ]
+  },
+  "plugins/obs-ffmpeg/obs-ffmpeg-source.c": {
+    "ffmpeg_source_play_pause": [
+      "ffmpeg_source_open"
+    ],
+    "ffmpeg_source_reconnect": [
+      "ffmpeg_source_open",
+      "ffmpeg_source_start"
+    ],
+    "ffmpeg_source_restart": [
+      "ffmpeg_source_start"
+    ],
+    "ffmpeg_source_start": [
+      "ffmpeg_source_open"
+    ],
+    "ffmpeg_source_update": [
+      "ffmpeg_source_open",
+      "dump_source_info",
+      "ffmpeg_source_start"
+    ]
+  },
+  "plugins/win-dshow/ffmpeg-decode.c": {
+    "ffmpeg_decode_init": [
+      "ffmpeg_decode_free"
+    ]
+  }
+}
