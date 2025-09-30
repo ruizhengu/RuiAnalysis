@@ -1,0 +1,11 @@
+{
+  "test.cpp": {
+    "main": [
+      "MyClass::method1",
+      "regularFunction"
+    ],
+    "regularFunction": [
+      "MyClass::method2"
+    ]
+  }
+}
