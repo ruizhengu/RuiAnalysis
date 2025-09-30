@@ -1,7 +1,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-// #include <nlohmann/json.hpp>
+#include <nlohmann/json.hpp>
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -9,24 +9,27 @@
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/raw_ostream.h"
+// #include "llvm/Support/JSON.h"
+// #include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace clang::tooling;
 using namespace llvm;
 using namespace std;
-// using json = nlohmann::json;
+using json = nlohmann::json;
 
 // Command-line options
 static cl::OptionCategory MyToolCategory("my-tool options");
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 static cl::extrahelp MoreHelp("\nMore help text...\n");
-static std::map<std::string, std::vector<std::string> > globalResults;
 
+static json globalResults = json::object();;
 
 class CallAnalyser : public RecursiveASTVisitor<CallAnalyser> {
     ASTContext &Context;
+    string currentFileName;
+    string currentFunction;
+    vector<string> currentCalls;
 
     static string getMethodFullName(FunctionDecl *func) {
         // if method
@@ -39,9 +42,22 @@ class CallAnalyser : public RecursiveASTVisitor<CallAnalyser> {
         return func->getNameAsString();
     }
 
+    void storeResults() {
+        if (!currentFunction.empty() && !currentCalls.empty()) {
+            if (!globalResults.contains(currentFileName)) {
+                globalResults[currentFileName] = json::object();
+            }
+
+            outs() << "currentFileName" << currentFileName;
+            outs() << "currentFunction" << currentFunction;
+            globalResults[currentFileName][currentFunction] = currentCalls;
+        }
+        currentCalls.clear();
+    }
+
 public:
     // Constructor
-    explicit CallAnalyser(ASTContext &Context) : Context(Context) {
+    explicit CallAnalyser(ASTContext &Context, const string &fileName) : Context(Context), currentFileName(fileName) {
     }
 
     /**
@@ -51,18 +67,19 @@ public:
      * @return
      */
     bool VisitCXXMethodDecl(CXXMethodDecl *method) {
-        // Get class and method name
-        // string className = method->getParent()->getNameAsString();
-        // string methodName = method->getNameAsString();
-        string fullMethodName = getMethodFullName(method);
+        storeResults(); // store previous method
+        // Get current class and method name
+        currentFunction = getMethodFullName(method);
 
-        llvm::outs() << "=== Found Method: " << fullMethodName << " ===\n";
+        llvm::outs() << "=== Found Method: " << currentFunction << " ===\n";
 
         // Analyse method body
         if (method->hasBody()) {
-            analyseMethodBody(method, fullMethodName);
+            analyseMethodBody(method, currentFunction);
         }
         llvm::outs() << "---\n";
+
+        storeResults(); // store current method
         return true;
     }
 
@@ -77,14 +94,17 @@ public:
         if (isa<CXXMethodDecl>(func)) {
             return true;
         }
+        storeResults(); // store previous function
 
-        string functionName = getMethodFullName(func);
-        llvm::outs() << "=== Found Function: " << functionName << " ===\n";
+        currentFunction = getMethodFullName(func);
+        llvm::outs() << "=== Found Function: " << currentFunction << " ===\n";
 
         if (func->hasBody()) {
-            analyseMethodBody(func, functionName);
+            analyseMethodBody(func, currentFunction);
         }
         llvm::outs() << "---\n";
+
+        storeResults(); // store current function
         return true;
     }
 
@@ -101,7 +121,7 @@ private:
         if (!body) return;
 
         // Visitor to find call expressions in method
-        CallExprVisitor callVisitor(Context, callerName);
+        CallExprVisitor callVisitor(Context, callerName, currentCalls);
         callVisitor.TraverseStmt(body);
     }
 
@@ -111,11 +131,11 @@ private:
     class CallExprVisitor : public RecursiveASTVisitor<CallExprVisitor> {
         ASTContext &Context;
         string callerName;
-        vector<string> callees;
+        vector<string> &calls;
 
     public:
-        CallExprVisitor(ASTContext &Context, const string &callerName)
-            : Context(Context), callerName(callerName) {
+        CallExprVisitor(ASTContext &Context, const string &callerName, vector<string> &calls)
+            : Context(Context), callerName(callerName), calls(calls) {
         }
 
         bool VisitCallExpr(CallExpr *callExpr) {
@@ -124,7 +144,7 @@ private:
             FunctionDecl *callee = callExpr->getDirectCallee();
             if (callee) {
                 string calleeName = getMethodFullName(callee);
-                callees.push_back(calleeName);
+                calls.push_back(calleeName);
                 llvm::outs() << callerName << " calls " << calleeName << "\n";
             } else {
                 llvm::outs() << callerName << " invalid call expression!\n";
@@ -133,9 +153,9 @@ private:
             return true;
         }
 
-        const vector<string> &getCallees() const {
-            return callees;
-        }
+        // const vector<string> &getCallees() const {
+        //     return callees;
+        // }
     };
 };
 
@@ -148,7 +168,8 @@ class CallExprConsumer : public ASTConsumer {
 
 public:
     // Constructor
-    explicit CallExprConsumer(ASTContext &Context, const string &fileName) : analyser(Context), fileName(fileName) {
+    explicit CallExprConsumer(ASTContext &Context, const string &fileName)
+        : analyser(Context, fileName), fileName(fileName) {
     }
 
     void HandleTranslationUnit(ASTContext &Context) override {
@@ -207,24 +228,35 @@ int main(int argc, const char **argv) {
             allFiles.push_back(p);
         }
     }
-
+    for (string file: allFiles) {
+        outs() << "Found File: " << file << "\n";
+    }
     // ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
     ClangTool Tool(OptionsParser.getCompilations(), allFiles);
     int res = Tool.run(newFrontendActionFactory<CallExprAction>().get());
 
-    json::Array arr;
-    for (string file: allFiles) {
-        json::Object obj;
-        json::Object inner;
+    outs() << "globalResults: " << globalResults.dump(4) << "\n";
+    json resultArr = json::array();
+    for (auto &fileEntry: globalResults.items()) {
+        string fileName = fileEntry.key();
+        outs() << "=== Found File: " << fileName << " ===\n";
+        json functionCallsObj = json::object();
 
-        json::Array callsArr;
-        inner["calls"] = std::move(callsArr);
-        // obj[fname] = std::move(inner);
+        // fileEntry.value() contains the function-calls mapping for this file
+        for (auto &functionEntry: fileEntry.value().items()) {
+            string functionName = functionEntry.key();
+            json callsArray = functionEntry.value(); // This should already be an array
 
-        arr.push_back(std::move(obj));
+            functionCallsObj[functionName] = callsArray;
+        }
+
+        json fileObj = json::object();
+        fileObj[fileName] = functionCallsObj;
+        resultArr.push_back(fileObj);
     }
 
-    llvm::outs() << llvm::formatv("{0:2}", llvm::json::Value(std::move(arr))) << "\n";
+    // Output the JSON
+    llvm::outs() << resultArr.dump(2) << "\n";
 
     return res;
 }
